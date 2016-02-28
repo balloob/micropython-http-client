@@ -28,7 +28,7 @@ class Response(object):
 
 
 # Adapted from upip
-def request(method, url, json=None, timeout=None):
+def request(method, url, json=None, timeout=None, headers=None):
     urlparts = url.split('/', 3)
     proto = urlparts[0]
     host = urlparts[2]
@@ -69,6 +69,10 @@ def request(method, url, json=None, timeout=None):
 
         # MicroPython rawsocket module supports file interface directly
         sock.write('%s /%s HTTP/1.0\r\nHost: %s\r\n' % (method, urlpath, host))
+
+        if headers is not None:
+            for header in headers.items():
+                sock.write('%s: %s\r\n' % header)
 
         if content is not None:
             sock.write('content-length: %s\r\n' % len(content))
