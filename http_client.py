@@ -1,4 +1,11 @@
 import usocket
+import ujson
+try:
+    import ussl
+except ImportError:
+    ussl = None
+
+CONTENT_TYPE_JSON = "application/json"
 
 
 class Response(object):
@@ -11,7 +18,6 @@ class Response(object):
         return self.content.decode(encoding)
 
     def json(self):
-        import ujson
         return ujson.loads(self.content)
 
     def raise_for_status(self):
@@ -22,7 +28,7 @@ class Response(object):
 
 
 # Adapted from upip
-def request(method, url, content=None):
+def request(method, url, json=None, timeout=None):
     urlparts = url.split('/', 3)
     proto = urlparts[0]
     host = urlparts[2]
@@ -39,50 +45,70 @@ def request(method, url, content=None):
         host, port = host.split(':')
         port = int(port)
 
+    if json is not None:
+        content = ujson.dumps(json)
+        content_type = CONTENT_TYPE_JSON
+    else:
+        content = None
+
     ai = usocket.getaddrinfo(host, port)
     addr = ai[0][4]
 
-    s = usocket.socket()
+    sock = usocket.socket()
+
+    if timeout is not None:
+        assert hasattr(sock, 'settimeout'), 'Socket does not support timeout'
+        sock.settimeout(timeout)
+
     try:
-        s.connect(addr)
+        sock.connect(addr)
 
         if proto == 'https:':
-            import ussl
-            s = ussl.wrap_socket(s)
+            assert ussl is not None, 'HTTPS not supported: could not find ussl'
+            sock = ussl.wrap_socket(sock)
 
         # MicroPython rawsocket module supports file interface directly
-        s.write('%s /%s HTTP/1.0\r\nHost: %s\r\n' % (method, urlpath, host))
+        sock.write('%s /%s HTTP/1.0\r\nHost: %s\r\n' % (method, urlpath, host))
 
         if content is not None:
-            s.write('content-length: %s\r\n' % len(content))
-            s.write('\r\n')
-            s.write(content)
+            sock.write('content-length: %s\r\n' % len(content))
+            sock.write('content-type: %s\r\n' % content_type)
+            sock.write('\r\n')
+            sock.write(content)
         else:
-            s.write('\r\n')
+            sock.write('\r\n')
 
-        l = s.readline()
+        l = sock.readline()
         protover, status, msg = l.split(None, 2)
 
         # Skip headers
-        while s.readline() != b'\r\n':
+        while sock.readline() != b'\r\n':
             pass
 
         content = b''
 
         while 1:
-            l = s.read(1024)
+            l = sock.read(1024)
             if not l:
                 break
             content += l
 
         return Response(int(status), content)
     finally:
-        s.close()
+        sock.close()
 
 
-def get(url):
-    return request('GET', url)
+def get(url, **kwargs):
+    return request('GET', url, **kwargs)
 
 
-def post(url, content):
-    return request('POST', url, content)
+def post(url, **kwargs):
+    return request('POST', url, **kwargs)
+
+
+def support_ssl():
+    return ussl is not None
+
+
+def support_timeout():
+    return hasattr(usocket.socket, 'settimeout')
