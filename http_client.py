@@ -30,7 +30,8 @@ class Response(object):
 
 
 # Adapted from upip
-def request(method, url, json=None, timeout=None, headers=None):
+def request(method, url, json=None, timeout=None, headers=None,
+            skip_body=False):
     urlparts = url.split('/', 3)
     proto = urlparts[0]
     host = urlparts[2]
@@ -93,11 +94,12 @@ def request(method, url, json=None, timeout=None, headers=None):
 
         content = b''
 
-        while 1:
-            l = sock.read(1024)
-            if not l:
-                break
-            content += l
+        if not skip_body:
+            while 1:
+                l = sock.read(1024)
+                if not l:
+                    break
+                content += l
 
         return Response(int(status), content)
     finally:
