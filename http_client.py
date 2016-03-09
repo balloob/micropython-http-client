@@ -5,6 +5,8 @@ try:
 except ImportError:
     ussl = None
 
+SUPPORT_SSL = ussl is not None
+SUPPORT_TIMEOUT = hasattr(usocket.socket, 'settimeout')
 CONTENT_TYPE_JSON = "application/json"
 
 
@@ -57,14 +59,14 @@ def request(method, url, json=None, timeout=None, headers=None):
     sock = usocket.socket()
 
     if timeout is not None:
-        assert hasattr(sock, 'settimeout'), 'Socket does not support timeout'
+        assert SUPPORT_TIMEOUT, 'Socket does not support timeout'
         sock.settimeout(timeout)
 
     try:
         sock.connect(addr)
 
         if proto == 'https:':
-            assert ussl is not None, 'HTTPS not supported: could not find ussl'
+            assert SUPPORT_SSL, 'HTTPS not supported: could not find ussl'
             sock = ussl.wrap_socket(sock)
 
         # MicroPython rawsocket module supports file interface directly
@@ -108,11 +110,3 @@ def get(url, **kwargs):
 
 def post(url, **kwargs):
     return request('POST', url, **kwargs)
-
-
-def support_ssl():
-    return ussl is not None
-
-
-def support_timeout():
-    return hasattr(usocket.socket, 'settimeout')
