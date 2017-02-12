@@ -1,6 +1,8 @@
 MicroPython HTTP Client
 =======================
 
+## Deprecated. Please use the built-in one now that it's available.
+
 HTTP 1.0 client for MicroPython with a small subset of the API of `Requests for Humans <https://github.com/kennethreitz/requests>`_. Please note that it does not verify SSL certificates.
 
 .. code-block:: python
